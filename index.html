@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>蒼剣のエルディア — Rust + Bevy + WebAssembly 3D RPG</title>
+  <meta name="description" content="ブラウザで遊べる 3D アクション RPG。Rust と Bevy で作り WebAssembly で動いています。" />
+  <link data-trunk rel="rust" data-bin="wasm-3d-rpg" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue" data-initializer="loader.js" />
+  <link data-trunk rel="copy-dir" href="assets" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #070a14; overflow: hidden; }
+    canvas#game { display: block; width: 100%; height: 100%; outline: none; }
+    #loading {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; color: #f3e6c4; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; z-index: 10;
+      background: radial-gradient(ellipse at 50% 40%, #1c2a4a 0%, #070a14 70%);
+      transition: opacity .8s ease;
+    }
+    #loading h1 { margin: 0; font-size: clamp(36px, 7vw, 72px); letter-spacing: .12em; text-shadow: 0 4px 24px rgba(80,140,255,.45); }
+    #loading p { margin: 0; color: #9fb4dc; font-size: 15px; letter-spacing: .08em; font-family: system-ui, sans-serif; }
+    #bar { width: min(420px, 70vw); height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+    #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #5fa8ff, #f7d58a); transition: width .2s; }
+    #loading.done { opacity: 0; pointer-events: none; }
+    #error { color: #ff9a8a; max-width: 80vw; text-align: center; font-family: system-ui, sans-serif; display: none; }
+  </style>
+  <script>
+    // ブラウザの自動再生制限: 最初の操作で AudioContext を再開する
+    (function () {
+      const A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return;
+      const ctxs = [];
+      function P(...args) { const c = new A(...args); ctxs.push(c); return c; }
+      P.prototype = A.prototype;
+      window.AudioContext = P;
+      window.webkitAudioContext = P;
+      const resume = () => ctxs.forEach((c) => { if (c.state !== "running") c.resume(); });
+      ["pointerdown", "keydown", "touchstart", "gamepadconnected"].forEach((e) =>
+        window.addEventListener(e, resume, { capture: true }));
+    })();
+    // 起動中のエラー (WebGL2 非対応など) を画面に出す
+    window.addEventListener("error", (ev) => {
+      const l = document.getElementById("loading");
+      if (!l || l.classList.contains("done")) return;
+      const e = document.getElementById("error");
+      e.style.display = "block";
+      e.textContent = "起動に失敗しました。WebGL2 に対応したブラウザ (Chrome / Edge / Firefox / Safari 最新版) でハードウェアアクセラレーションを有効にしてお試しください。";
+    });
+  </script>
+</head>
+<body>
+  <div id="loading">
+    <p>ETERNAL BLADE OF</p>
+    <h1>蒼剣のエルディア</h1>
+    <div id="bar"><div id="fill"></div></div>
+    <p id="status">読み込み中…</p>
+    <p id="error"></p>
+  </div>
+  <canvas id="game" tabindex="0" oncontextmenu="return false"></canvas>
+</body>
+</html>
