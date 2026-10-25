@@ -2,14 +2,17 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>蒼剣のエルディア — Rust + Bevy + WebAssembly 3D RPG</title>
   <meta name="description" content="ブラウザで遊べる 3D アクション RPG。Rust と Bevy で作り WebAssembly で動いています。" />
   <link data-trunk rel="rust" data-bin="wasm-3d-rpg" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue" data-initializer="loader.js" />
   <link data-trunk rel="copy-dir" href="assets" />
+  <link data-trunk rel="copy-file" href="touch.js" />
   <style>
-    html, body { margin: 0; height: 100%; background: #070a14; overflow: hidden; }
-    canvas#game { display: block; width: 100%; height: 100%; outline: none; }
+    html, body { margin: 0; height: 100%; background: #070a14; overflow: hidden; overscroll-behavior: none; -webkit-touch-callout: none; }
+    canvas#game { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
     #loading {
       position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 18px; color: #f3e6c4; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; z-index: 10;
@@ -61,5 +64,6 @@
     <p id="error"></p>
   </div>
   <canvas id="game" tabindex="0" oncontextmenu="return false"></canvas>
+  <script src="touch.js"></script>
 </body>
 </html>

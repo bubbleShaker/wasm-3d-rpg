@@ -344,12 +344,12 @@ fn npc_dialog(id: NpcId, progress: &Progress, stats: &PlayerStats, child_idx: &m
         },
         NpcId::Child => {
             let tips = [
-                "ねえねえ、Shift で転がると敵の攻撃をよけられるんだって!",
-                "R キーで敵に狙いを定められるんだよ。囲まれたときに便利!",
-                "Q で回復薬を飲めるよ。ピンチのときはすぐ飲んでね!",
+                "ねえねえ、回避で転がると敵の攻撃をよけられるんだって!",
+                "ロックオンで敵に狙いを定められるんだよ。囲まれたときに便利!",
+                "回復薬はピンチのときにすぐ飲んでね!",
                 "攻撃を続けて押すと 3 段斬り! 最後の一撃はすっごく強いんだ!",
                 "赤く光る地面は危ないよ! すぐに離れて!",
-                "Tab で持ち物を見られるよ。いい装備を拾ったら着替えてね。",
+                "持ち物を開くと装備を着替えられるよ。いい装備を拾ったら着替えてね。",
             ];
             let t = tips[*child_idx % tips.len()];
             *child_idx += 1;
@@ -452,7 +452,7 @@ fn chest_reward(id: u8, s: &mut PlayerStats) -> String {
         }
         1 => {
             s.armors[1] = true;
-            format!("{} を手に入れた! (Tab で装備)", ARMORS[1].name)
+            format!("{} を手に入れた! (持ち物から装備)", ARMORS[1].name)
         }
         2 => {
             s.gold += 100;
@@ -465,7 +465,7 @@ fn chest_reward(id: u8, s: &mut PlayerStats) -> String {
         }
         10 => {
             s.weapons[2] = true;
-            format!("{} を手に入れた! (Tab で装備)", WEAPONS[2].name)
+            format!("{} を手に入れた! (持ち物から装備)", WEAPONS[2].name)
         }
         11 => {
             s.armors[4] = true;
@@ -613,7 +613,7 @@ fn run_action(
                     stats.armors[3] = true;
                 }
                 sfx.write(PlaySfx(SfxKind::Coin));
-                reopen(dialog, block, format!("{name} だね、いい買い物だよ! Tab で装備してね。"), stats);
+                reopen(dialog, block, format!("{name} だね、いい買い物だよ! 持ち物から装備してね。"), stats);
             } else {
                 sfx.write(PlaySfx(SfxKind::Deny));
                 reopen(dialog, block, "お金が足りないみたいだね…".into(), stats);

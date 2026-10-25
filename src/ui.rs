@@ -143,6 +143,14 @@ struct DialogName;
 struct DialogText;
 #[derive(Component)]
 struct DialogChoices;
+
+/// 会話の選択肢 1 つ (タップで選べるように番号を持つ)。
+#[derive(Component)]
+struct DialogChoiceItem(usize);
+
+/// 操作説明 (キーボード用。タッチ操作のときは隠す)
+#[derive(Component)]
+struct KeyHint;
 #[derive(Component)]
 struct FadeOverlay;
 #[derive(Component)]
@@ -232,7 +240,8 @@ impl Plugin for UiPlugin {
                     damage_numbers,
                 ),
             )
-            .add_systems(Update, (menu_buttons, menu_keys, pause_toggle, inventory_toggle, zone_banner, inventory_ui));
+            .add_systems(Update, (menu_buttons, menu_keys, pause_toggle, inventory_toggle, zone_banner, inventory_ui))
+            .add_systems(PreUpdate, tap_dialog_choice.after(crate::input::gather_input));
     }
 }
 
@@ -424,6 +433,7 @@ fn spawn_hud(mut commands: Commands, ga: Res<GameAssets>) {
                 Node { position_type: PositionType::Absolute, right: px(18), bottom: px(14), ..default() },
                 label(ga, "WASD 移動  クリック/F 攻撃  Shift 回避  Space ジャンプ\nE 調べる  Q 回復薬  R ロックオン  Tab 持ち物  Esc メニュー", 12.0, Color::srgba(1.0, 1.0, 1.0, 0.6)),
                 TextLayout { justify: Justify::Right, ..default() },
+                KeyHint,
             ));
         });
 
@@ -502,9 +512,19 @@ fn spawn_hud(mut commands: Commands, ga: Res<GameAssets>) {
 }
 
 /// 画面の大きさに合わせて UI 全体を拡大縮小する。
-fn ui_scale(windows: Query<&Window>, mut scale: ResMut<UiScale>) {
+fn ui_scale(windows: Query<&Window>, controls: Res<Controls>, mut scale: ResMut<UiScale>, mut hint: Query<&mut Visibility, With<KeyHint>>) {
     let Ok(w) = windows.single() else { return };
-    let s = (w.height() / 820.0).min(w.width() / 1400.0).clamp(0.55, 1.3);
+    // スマホは画面が小さいので、PC と同じ割合で縮めると文字が読めない
+    let s = if controls.touch_ui {
+        (w.height() / 560.0).min(w.width() / 1100.0).clamp(0.6, 1.3)
+    } else {
+        (w.height() / 820.0).min(w.width() / 1400.0).clamp(0.55, 1.3)
+    };
+    if controls.touch_ui {
+        for mut v in &mut hint {
+            *v = Visibility::Hidden;
+        }
+    }
     if (scale.0 - s).abs() > 0.01 {
         scale.0 = s;
     }
@@ -519,6 +539,7 @@ fn hud_visibility(state: Res<State<GameState>>, block: Res<UiBlock>, mut q: Quer
 
 #[allow(clippy::type_complexity)]
 fn update_bars(
+    controls: Res<Controls>,
     stats: Res<PlayerStats>,
     progress: Res<Progress>,
     zone: Res<CurrentZone>,
@@ -559,7 +580,8 @@ fn update_bars(
         set(&mut t, format!("Lv {}  蒼剣の旅人", stats.level));
     }
     for mut t in &mut texts.p2() {
-        set(&mut t, format!("回復薬 x{}  [Q]      {} G", stats.potions, stats.gold));
+        let key = if controls.touch_ui { "" } else { "  [Q]" };
+        set(&mut t, format!("回復薬 x{}{key}      {} G", stats.potions, stats.gold));
     }
     for mut t in &mut texts.p3() {
         set(&mut t, progress.quest_text().iter().map(|s| format!("◆ {s}")).collect::<Vec<_>>().join("\n"));
@@ -581,7 +603,13 @@ fn update_prompt(
         *v = if show { Visibility::Inherited } else { Visibility::Hidden };
     }
     if let Some(s) = &near.0 {
-        let key = if controls.using_gamepad { "Y" } else { "E" };
+        let key = if controls.touch_ui {
+            "話す"
+        } else if controls.using_gamepad {
+            "Y"
+        } else {
+            "E"
+        };
         for mut t in &mut text {
             let new = format!("[{key}] {s}");
             if t.0 != new {
@@ -715,12 +743,29 @@ fn dialog_ui(
                 c.spawn((
                     Node { padding: UiRect::axes(px(12), px(5)), border_radius: BorderRadius::all(px(6)), ..default() },
                     BackgroundColor(if sel { BTN_SEL } else { Color::srgba(1.0, 1.0, 1.0, 0.05) }),
+                    DialogChoiceItem(i),
                 ))
                 .with_children(|b| {
                     b.spawn(label(&ga, format!("{} {}. {s}", if sel { "▶" } else { "  " }, i + 1), 18.0, if sel { GOLD } else { TEXT }));
                 });
             }
         });
+    }
+}
+
+/// 選択肢が出ているときのタップ: 押した選択肢を選ぶ。選択肢の外のタップでは決定しない。
+fn tap_dialog_choice(
+    dialog: Res<Dialog>,
+    mut controls: ResMut<Controls>,
+    items: Query<(&DialogChoiceItem, &ComputedNode, &UiGlobalTransform)>,
+) {
+    let Some(tap) = controls.tap else { return };
+    if !(dialog.active && dialog.at_last() && dialog.page_done() && !dialog.choices.is_empty()) {
+        return;
+    }
+    controls.confirm = false;
+    if let Some((item, _, _)) = items.iter().find(|(_, node, tf)| node.contains_point(**tf, tap)) {
+        controls.choice = Some(item.0);
     }
 }
 
@@ -1075,17 +1120,19 @@ fn fullscreen(color: Color) -> impl Bundle {
     )
 }
 
-fn spawn_title(mut commands: Commands, ga: Res<GameAssets>, mut sel: ResMut<MenuSel>) {
+fn spawn_title(mut commands: Commands, ga: Res<GameAssets>, mut sel: ResMut<MenuSel>, controls: Res<Controls>) {
     let ga = &*ga;
     let has = save::has_save();
     sel.0 = if has { 1 } else { 0 };
     commands
         .spawn((fullscreen(Color::srgba(0.0, 0.02, 0.06, 0.28)), DespawnOnExit(GameState::Title)))
         .with_children(|r| {
+            // スマホの横画面は高さが足りないので題字を小さくする
+            let big = if controls.touch_ui { 60.0 } else { 84.0 };
             r.spawn(label(ga, "ETERNAL BLADE OF", 18.0, Color::srgba(1.0, 0.95, 0.85, 0.85)));
             r.spawn((
                 Text::new("蒼剣のエルディア"),
-                font(ga, 84.0),
+                font(ga, big),
                 TextColor(Color::srgb(0.98, 0.9, 0.7)),
                 TextShadow { offset: Vec2::new(3.0, 4.0), color: Color::srgba(0.05, 0.1, 0.3, 0.9) },
             ));
@@ -1102,7 +1149,7 @@ fn spawn_title(mut commands: Commands, ga: Res<GameAssets>, mut sel: ResMut<Menu
                 HelpText,
             ))
             .with_children(|p| {
-                for line in [
+                let keys = [
                     "WASD / 左スティック ― 移動",
                     "マウス / 右スティック ― カメラ (画面クリックでマウス固定)",
                     "左クリック / F / X ― 攻撃 (連打で 3 段コンボ)",
@@ -1110,13 +1157,22 @@ fn spawn_title(mut commands: Commands, ga: Res<GameAssets>, mut sel: ResMut<Menu
                     "Space / A ― ジャンプ     E / Y ― 話す・調べる",
                     "Q / RT ― 回復薬     R / LT ― ロックオン",
                     "Tab / Back ― 持ち物・装備     Esc / Start ― メニュー",
-                ] {
+                ];
+                let touch = [
+                    "画面の左をなぞる ― 移動     右をなぞる ― カメラ",
+                    "攻撃 ― 連打で 3 段コンボ     回避 ― 無敵時間あり",
+                    "話す ― 話す・調べる     ロック ― ロックオン",
+                    "会話はタップで送る。選択肢もタップで選ぶ",
+                ];
+                let lines: &[&str] = if controls.touch_ui { &touch } else { &keys };
+                for &line in lines {
                     p.spawn(label(ga, line, 16.0, TEXT));
                 }
             });
+            let start = if controls.touch_ui { "ボタンをタップして開始" } else { "Enter / クリックで開始" };
             r.spawn((
                 Node { position_type: PositionType::Absolute, bottom: px(14), ..default() },
-                label(ga, "Rust + Bevy + WebAssembly   ―   Enter / クリックで開始", 13.0, Color::srgba(1.0, 1.0, 1.0, 0.6)),
+                label(ga, format!("Rust + Bevy + WebAssembly   ―   {start}"), 13.0, Color::srgba(1.0, 1.0, 1.0, 0.6)),
             ));
         });
 }
@@ -1432,6 +1488,7 @@ fn inventory_ui(
     ga: Res<GameAssets>,
     block: Res<UiBlock>,
     stats: Res<PlayerStats>,
+    controls: Res<Controls>,
     roots: Query<Entity, With<InventoryRoot>>,
     mut last: Local<Option<(usize, usize, u32, u32)>>,
 ) {
@@ -1524,7 +1581,7 @@ fn inventory_ui(
                             });
                     }
                 });
-            button(r, ga, "閉じる (Tab)", MenuAction::CloseInventory, 0, true);
+            button(r, ga, if controls.touch_ui { "閉じる" } else { "閉じる (Tab)" }, MenuAction::CloseInventory, 0, true);
             let _ = dungeon::TILE;
         });
 }
