@@ -17,46 +17,53 @@
   let taps = []; // 前回の take 以降のタップ [x, y]
   const down = new Map(); // 画面上のタップ判定用 pointerId -> {x, y, t}
 
+  // 寸法は横向きのスマホ (高さ 390px 前後) を基準に、画面の高さに合わせて拡大する
+  const u = (n) => `calc(${n}px * var(--u, 1))`;
+  const fit = () => {
+    const z = Math.min(2.4, Math.max(1, Math.min(innerWidth, innerHeight) / 430));
+    document.documentElement.style.setProperty("--u", z.toFixed(3));
+    return z;
+  };
+  let zoom = fit();
   const css = `
     #touch { position: fixed; inset: 0; z-index: 5; pointer-events: none; user-select: none; -webkit-user-select: none;
       font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; touch-action: none; }
     body:not([data-mode="play"]) #touch .play { display: none; }
     #lzone { position: absolute; left: 0; top: 18%; bottom: 0; width: 42%; pointer-events: auto; }
-    #base { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%;
-      background: rgba(10, 20, 40, .28); border: 2px solid rgba(255, 255, 255, .35); }
-    #knob { position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
-      background: rgba(255, 255, 255, .55); box-shadow: 0 2px 10px rgba(0, 0, 0, .35); }
+    #base { position: absolute; width: ${u(124)}; height: ${u(124)}; margin: ${u(-62)} 0 0 ${u(-62)}; border-radius: 50%;
+      background: rgba(10, 20, 40, .28); border: ${u(2)} solid rgba(255, 255, 255, .35); }
+    #knob { position: absolute; width: ${u(56)}; height: ${u(56)}; margin: ${u(-28)} 0 0 ${u(-28)}; border-radius: 50%;
+      background: rgba(255, 255, 255, .55); box-shadow: 0 ${u(2)} ${u(10)} rgba(0, 0, 0, .35); }
     .tb { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 50%;
-      pointer-events: auto; color: #fff; font-weight: 700; text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
-      background: rgba(15, 25, 50, .42); border: 2px solid rgba(255, 255, 255, .5); box-sizing: border-box; }
+      pointer-events: auto; color: #fff; font-weight: 700; text-shadow: 0 ${u(1)} ${u(3)} rgba(0, 0, 0, .8);
+      background: rgba(15, 25, 50, .42); border: ${u(2)} solid rgba(255, 255, 255, .5); box-sizing: border-box; }
     .tb.on { background: rgba(247, 213, 138, .55); border-color: #fff3c8; transform: scale(.94); }
-    #b-attack { width: 84px; height: 84px; font-size: 17px; background: rgba(150, 40, 40, .45); }
-    .tb.m { width: 60px; height: 60px; font-size: 13px; }
-    .tb.s { width: 48px; height: 48px; font-size: 11px; }
-    .tb.pill { border-radius: 14px; width: auto; height: 34px; padding: 0 12px; font-size: 12px; }
+    #b-attack { width: ${u(84)}; height: ${u(84)}; font-size: ${u(17)}; background: rgba(150, 40, 40, .45); }
+    .tb.m { width: ${u(60)}; height: ${u(60)}; font-size: ${u(13)}; }
+    .tb.s { width: ${u(48)}; height: ${u(48)}; font-size: ${u(11)}; }
+    .tb.pill { border-radius: ${u(14)}; width: auto; height: ${u(34)}; padding: 0 ${u(12)}; font-size: ${u(12)}; }
     body[data-near="1"] #b-talk { background: rgba(80, 160, 255, .6); border-color: #cfe6ff; animation: near 1s infinite; }
-    @keyframes near { 50% { box-shadow: 0 0 16px rgba(120, 190, 255, .9); } }
-    #topbar { position: absolute; top: calc(6px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
-      display: flex; gap: 8px; }
+    @keyframes near { 50% { box-shadow: 0 0 ${u(16)} rgba(120, 190, 255, .9); } }
+    #topbar { position: absolute; top: calc(${u(6)} + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      display: flex; gap: ${u(8)}; }
     #topbar .tb { position: static; }
     body:not([data-mode="play"]):not([data-mode="dialog"]) #topbar { top: auto; left: auto; transform: none;
-      bottom: calc(8px + env(safe-area-inset-bottom)); right: calc(10px + env(safe-area-inset-right)); }
+      bottom: calc(${u(8)} + env(safe-area-inset-bottom)); right: calc(${u(10)} + env(safe-area-inset-right)); }
     #rotate { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
-      flex-direction: column; gap: 14px; background: #070a14; color: #f3e6c4; font: 700 18px system-ui, sans-serif; }
-    #rotate .ph { width: 46px; height: 78px; border: 4px solid #f3e6c4; border-radius: 9px; animation: rot 2s infinite; }
+      flex-direction: column; gap: ${u(14)}; background: #070a14; color: #f3e6c4; font: 700 ${u(18)} system-ui, sans-serif; }
+    #rotate .ph { width: ${u(46)}; height: ${u(78)}; border: ${u(4)} solid #f3e6c4; border-radius: ${u(9)}; animation: rot 2s infinite; }
     @keyframes rot { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
     @media (orientation: portrait) { #rotate { display: flex; } }
   `;
   const R = "env(safe-area-inset-right)";
-  const L = "env(safe-area-inset-left)";
   const html = `
     <div id="lzone" class="play"><div id="base"></div><div id="knob"></div></div>
-    <div class="tb play" id="b-attack" data-b="attack" style="right:calc(26px + ${R});bottom:30px">攻撃</div>
-    <div class="tb m play" data-b="roll" style="right:calc(122px + ${R});bottom:18px">回避</div>
-    <div class="tb m play" data-b="jump" style="right:calc(40px + ${R});bottom:128px">ジャンプ</div>
-    <div class="tb m play" id="b-talk" data-b="talk" style="right:calc(118px + ${R});bottom:100px">話す</div>
-    <div class="tb s play" data-b="potion" style="right:calc(196px + ${R});bottom:22px">回復</div>
-    <div class="tb s play" data-b="lock" style="right:calc(196px + ${R});bottom:96px">ロック</div>
+    <div class="tb play" id="b-attack" data-b="attack" style="right:calc(${u(26)} + ${R});bottom:${u(30)}">攻撃</div>
+    <div class="tb m play" data-b="roll" style="right:calc(${u(122)} + ${R});bottom:${u(18)}">回避</div>
+    <div class="tb m play" data-b="jump" style="right:calc(${u(40)} + ${R});bottom:${u(128)}">ジャンプ</div>
+    <div class="tb m play" id="b-talk" data-b="talk" style="right:calc(${u(118)} + ${R});bottom:${u(100)}">話す</div>
+    <div class="tb s play" data-b="potion" style="right:calc(${u(196)} + ${R});bottom:${u(22)}">回復</div>
+    <div class="tb s play" data-b="lock" style="right:calc(${u(196)} + ${R});bottom:${u(96)}">ロック</div>
     <div id="topbar">
       <div class="tb pill play" data-b="bag">持ち物</div>
       <div class="tb pill play" data-b="menu">メニュー</div>
@@ -78,10 +85,11 @@
     const base = root.querySelector("#base");
     const knob = root.querySelector("#knob");
     const lzone = root.querySelector("#lzone");
-    const R0 = 52; // スティックが倒れきる距離
+    const R0 = () => 52 * zoom; // スティックが倒れきる距離
     const restStick = () => {
+      zoom = fit();
       const r = lzone.getBoundingClientRect();
-      const x = Math.max(110, r.width * 0.4), y = r.height - 118;
+      const x = Math.max(110 * zoom, r.width * 0.4), y = r.height - 118 * zoom;
       base.style.left = knob.style.left = x + "px";
       base.style.top = knob.style.top = y + "px";
     };
@@ -104,7 +112,7 @@
       const [x, y] = local(e);
       let dx = x - stick.ox, dy = y - stick.oy;
       const d = Math.hypot(dx, dy);
-      if (d > R0) { dx *= R0 / d; dy *= R0 / d; }
+      if (d > R0()) { dx *= R0() / d; dy *= R0() / d; }
       stick.x = stick.ox + dx; stick.y = stick.oy + dy;
       knob.style.left = stick.x + "px";
       knob.style.top = stick.y + "px";
@@ -146,10 +154,11 @@
     });
     window.addEventListener("pointermove", (e) => {
       const d = down.get(e.pointerId);
-      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) d.moved = true;
+      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12 * zoom) d.moved = true;
       if (cam && e.pointerId === cam.id) {
-        look[0] += e.clientX - cam.x;
-        look[1] += e.clientY - cam.y;
+        // 大きい画面でも同じ量なぞれば同じだけ回るよう、拡大率で割る
+        look[0] += (e.clientX - cam.x) / zoom;
+        look[1] += (e.clientY - cam.y) / zoom;
         cam.x = e.clientX; cam.y = e.clientY;
       }
     });
@@ -168,7 +177,7 @@
   // ゲームが毎フレーム呼ぶ: [スティックx, スティックy(上が+), カメラdx, カメラdy, 押したボタン, タップ数, タップx, タップy]
   window.__touchTake = function () {
     let sx = 0, sy = 0;
-    if (stick) { sx = (stick.x - stick.ox) / 52; sy = -(stick.y - stick.oy) / 52; }
+    if (stick) { sx = (stick.x - stick.ox) / (52 * zoom); sy = -(stick.y - stick.oy) / (52 * zoom); }
     const t = taps.length ? taps[taps.length - 1] : [0, 0];
     const out = [sx, sy, look[0], look[1], pressed, taps.length, t[0], t[1]];
     pressed = 0; look = [0, 0]; taps = [];

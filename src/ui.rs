@@ -516,7 +516,7 @@ fn ui_scale(windows: Query<&Window>, controls: Res<Controls>, mut scale: ResMut<
     let Ok(w) = windows.single() else { return };
     // スマホは画面が小さいので、PC と同じ割合で縮めると文字が読めない
     let s = if controls.touch_ui {
-        (w.height() / 560.0).min(w.width() / 1100.0).clamp(0.6, 1.3)
+        (w.height() / 560.0).min(w.width() / 1100.0).clamp(0.6, 1.8)
     } else {
         (w.height() / 820.0).min(w.width() / 1400.0).clamp(0.55, 1.3)
     };
