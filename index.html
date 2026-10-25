@@ -24,6 +24,11 @@
     #error { color: #ff9a8a; max-width: 80vw; text-align: center; font-family: system-ui, sans-serif; display: none; }
   </style>
   <script>
+    // 高 DPI の画面でも CSS ピクセルで描く (main.rs の scale_factor_override と揃える)。
+    // 揃えないとマウスやタッチの座標が devicePixelRatio 倍ずれて、ボタンが押せない。
+    Object.defineProperty(window, "devicePixelRatio", { get: () => 1 });
+  </script>
+  <script>
     // ブラウザの自動再生制限: 最初の操作で AudioContext を再開する
     (function () {
       const A = window.AudioContext || window.webkitAudioContext;
