@@ -124,6 +124,11 @@ impl Colliders {
         p
     }
 
+    /// 壁のタイルの中か (大きなノックバックでめり込むと、壁の中を歩けてしまう)。
+    pub fn in_wall(&self, p: Vec2) -> bool {
+        self.grid.as_ref().is_some_and(|g| g.wall_at(p))
+    }
+
     /// 視線 (カメラ用) : from から to へ進み、壁に当たる手前の割合を返す。
     pub fn ray_clear_fraction(&self, from: Vec2, to: Vec2) -> f32 {
         let Some(g) = &self.grid else { return 1.0 };

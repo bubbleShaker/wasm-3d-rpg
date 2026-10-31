@@ -797,7 +797,7 @@ fn enemy_physics(
             push_player += d / l * pen * 0.7;
         }
         p = colliders.resolve(p, en.radius);
-        if blocked(z, p) {
+        if blocked(z, p) || colliders.in_wall(p) {
             p = old;
         }
         tf.translation.x = p.x;
@@ -812,7 +812,7 @@ fn enemy_physics(
         && let Ok(mut pt) = player.single_mut()
     {
         let np = colliders.resolve(pt.translation.xz() + push_player, 0.4);
-        if !blocked(z, np) {
+        if !blocked(z, np) && !colliders.in_wall(np) {
             pt.translation.x = np.x;
             pt.translation.z = np.y;
         }

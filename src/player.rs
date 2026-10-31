@@ -430,13 +430,14 @@ fn player_physics(
     let old = tf.translation.xz();
     let mut p = old + (Vec2::new(ctl.vel.x, ctl.vel.z) + knock.xz()) * dt;
     p = colliders.resolve(p, RADIUS);
-    if blocked(z, p) {
+    let stop = |p: Vec2| blocked(z, p) || colliders.in_wall(p);
+    if stop(p) {
         // 軸ごとに試してスライドさせる
         let px = Vec2::new(p.x, old.y);
         let pz = Vec2::new(old.x, p.y);
-        p = if !blocked(z, px) {
+        p = if !stop(px) {
             px
-        } else if !blocked(z, pz) {
+        } else if !stop(pz) {
             pz
         } else {
             old
