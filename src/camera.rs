@@ -19,6 +19,8 @@ use crate::{
     zone::{Colliders, CurrentZone, ZoneId, ground_height},
 };
 
+const MIN_VIEW_DIST: f32 = 3.2;
+
 #[derive(Component)]
 pub struct MainCamera;
 
@@ -30,6 +32,7 @@ pub struct CamRig {
     pub focus: Vec3,
     pub trauma: f32,
     pub cur_dist: f32,
+    pub lift: f32,
     pub time: f32,
 }
 
@@ -42,6 +45,7 @@ impl Default for CamRig {
             focus: Vec3::ZERO,
             trauma: 0.0,
             cur_dist: 7.5,
+            lift: 0.0,
             time: 0.0,
         }
     }
@@ -159,6 +163,11 @@ fn follow_camera(
         rig.cur_dist + (want_dist - rig.cur_dist) * damp(4.0, dt)
     };
     let mut pos = rig.focus + dir * rig.cur_dist;
+    // 壁際で寄りすぎるときは、上へ逃げて見下ろす (体に埋まらない距離を保つ)
+    let want_lift = (MIN_VIEW_DIST * MIN_VIEW_DIST - rig.cur_dist * rig.cur_dist).max(0.0).sqrt();
+    rig.lift += (want_lift - rig.lift) * damp(8.0, dt);
+    pos.y += rig.lift;
+    let look = rig.focus - Vec3::new(dir.x, 0.0, dir.z).normalize_or_zero() * rig.lift * 0.35;
     // 地形より下に潜らない
     let g = ground_height(zone.0, pos.xz()) + 0.5;
     if pos.y < g {
@@ -180,5 +189,5 @@ fn follow_camera(
         * 0.8;
     let _ = vtime;
     ct.translation = pos + shake;
-    ct.look_at(rig.focus + shake * 0.5, Vec3::Y);
+    ct.look_at(look + shake * 0.5, Vec3::Y);
 }
