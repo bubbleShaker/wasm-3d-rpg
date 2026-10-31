@@ -170,7 +170,7 @@ fn follow_camera(
     let want_lift = (MIN_VIEW_DIST * MIN_VIEW_DIST - rig.cur_dist * rig.cur_dist).max(0.0).sqrt();
     rig.lift += (want_lift - rig.lift) * damp(8.0, dt);
     pos.y += rig.lift;
-    let look = rig.focus - Vec3::new(dir.x, 0.0, dir.z).normalize_or_zero() * rig.lift * 0.35;
+    let look = rig.focus - Vec3::new(dir.x, 0.0, dir.z).normalize_or_zero() * rig.lift * 0.2;
     // 地形より下に潜らない
     let g = ground_height(zone.0, pos.xz()) + 0.5;
     if pos.y < g {
