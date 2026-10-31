@@ -78,7 +78,8 @@ fn spawn_camera(mut commands: Commands, controls: Res<Controls>) {
         Tonemapping::TonyMcMapface,
         Msaa::Off,
         Fxaa::default(),
-        ShadowFilteringMethod::Gaussian,
+        // スマホは影のぼかしを軽いものにする
+        if controls.touch_ui { ShadowFilteringMethod::Hardware2x2 } else { ShadowFilteringMethod::Gaussian },
         Projection::Perspective(PerspectiveProjection {
             fov: 55f32.to_radians(),
             far: 900.0,

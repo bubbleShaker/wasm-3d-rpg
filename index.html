@@ -32,10 +32,10 @@
     const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
     window.__touchUI = params.get("touch") === "1" || (params.get("touch") !== "0" && coarse && navigator.maxTouchPoints > 0);
     // 描画の倍率 (main.rs の scale_factor_override はこの値を読む)。揃えないとマウスやタッチの座標がずれて、ボタンが押せない。
-    // PC は CSS ピクセルのまま。スマホは倍率 1 だと粗いので、負荷と釣り合う 1.5 まで上げる。?scale= で試せる
+    // PC は CSS ピクセルのまま。スマホは倍率 1 だと粗いので、負荷と釣り合う 2 まで上げる。?scale= で試せる
     const realRatio = window.devicePixelRatio || 1;
     const asked = parseFloat(params.get("scale"));
-    const renderScale = asked > 0 ? Math.min(asked, realRatio) : window.__touchUI ? Math.max(1, Math.min(1.5, realRatio)) : 1;
+    const renderScale = asked > 0 ? Math.min(asked, realRatio) : window.__touchUI ? Math.max(1, Math.min(2, realRatio)) : 1;
     Object.defineProperty(window, "devicePixelRatio", { get: () => renderScale });
     // winit はこれがあると実際の画素数をそのまま解像度にする。消すと Safari と同じく CSS サイズ × 上の倍率になる
     delete ResizeObserverEntry.prototype.devicePixelContentBoxSize;

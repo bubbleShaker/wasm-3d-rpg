@@ -19,6 +19,17 @@ use crate::{
 #[derive(Component)]
 pub struct Sun;
 
+/// 太陽の影を出すか。スマホで重いときは途中で切る。
+#[derive(Resource)]
+struct SunShadows {
+    on: bool,
+    slow: f32,
+}
+
+/// スマホの目標 (これより遅いフレームが続いたら影を切る)
+const SLOW_FRAME: f32 = 1.0 / 40.0;
+const SLOW_LIMIT: f32 = 3.0;
+
 #[derive(Component)]
 struct SkyDome;
 
@@ -49,18 +60,44 @@ impl Plugin for RenderSetupPlugin {
         app.insert_resource(DirectionalLightShadowMap { size: 2048 })
             .insert_resource(ClearColor(Color::srgb(0.5, 0.7, 0.9)))
             .init_resource::<DayCycle>()
+            .insert_resource(SunShadows { on: true, slow: 0.0 })
             .add_systems(Startup, spawn_sun)
-            .add_systems(Update, (on_zone_entered, update_environment, animate_water).chain());
+            .add_systems(Update, (watch_frame_rate, on_zone_entered, update_environment, animate_water).chain());
+    }
+}
+
+/// スマホでプレイ中に遅いフレームが続いたら、影を切って軽くする。
+fn watch_frame_rate(
+    time: Res<Time<Real>>,
+    state: Res<State<crate::GameState>>,
+    controls: Res<crate::input::Controls>,
+    mut shadows: ResMut<SunShadows>,
+) {
+    if !controls.touch_ui || !shadows.on || *state.get() != crate::GameState::Playing {
+        return;
+    }
+    let dt = time.delta_secs();
+    // 読み込みやタブの切り替えで止まった分は数えない
+    if dt > 0.25 {
+        return;
+    }
+    shadows.slow = if dt > SLOW_FRAME { shadows.slow + dt } else { (shadows.slow - dt).max(0.0) };
+    if shadows.slow > SLOW_LIMIT {
+        shadows.on = false;
+        info!("重いので影を切ります");
     }
 }
 
 fn spawn_sun(mut commands: Commands, controls: Res<crate::input::Controls>) {
+    // スマホの影は解像度を落として軽くする
+    if controls.touch_ui {
+        commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
+    }
     commands.spawn((
         Sun,
         DirectionalLight {
             illuminance: 11_000.0,
-            // スマホでは軽くするため影を使わない
-            shadow_maps_enabled: !controls.touch_ui,
+            shadow_maps_enabled: true,
             color: Color::srgb(1.0, 0.95, 0.85),
             ..default()
         },
@@ -201,7 +238,6 @@ fn on_zone_entered(
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn update_environment(
-    controls: Res<crate::input::Controls>,
     time: Res<Time>,
     zone: Res<CurrentZone>,
     mut day: ResMut<DayCycle>,
@@ -213,6 +249,7 @@ fn update_environment(
     mut cam: Query<(&mut DistanceFog, &Transform), With<MainCamera>>,
     mut ambient: ResMut<GlobalAmbientLight>,
     mut clear: ResMut<ClearColor>,
+    shadows: Res<SunShadows>,
 ) {
     let dt = time.delta_secs();
     let Ok((mut light, mut lt)) = sun.single_mut() else { return };
@@ -231,7 +268,7 @@ fn update_environment(
             let noon = Color::srgb(1.0, 0.97, 0.9);
             light.color = noon.mix(&warm, golden * golden);
             light.illuminance = 7_000.0 + 7_000.0 * (1.0 - golden);
-            light.shadow_maps_enabled = !controls.touch_ui;
+            light.shadow_maps_enabled = shadows.on;
             *lt = Transform::from_translation(ppos + dir * 60.0).looking_at(ppos, Vec3::Y);
             for mut d in &mut disc {
                 d.translation = cam_t.translation + dir * 500.0;
