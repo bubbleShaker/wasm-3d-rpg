@@ -70,16 +70,12 @@ impl Plugin for CameraPlugin {
     }
 }
 
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn((
+fn spawn_camera(mut commands: Commands, controls: Res<Controls>) {
+    let mut camera = commands.spawn((
         Camera3d::default(),
         MainCamera,
         Hdr,
         Tonemapping::TonyMcMapface,
-        Bloom {
-            intensity: 0.18,
-            ..Bloom::NATURAL
-        },
         Msaa::Off,
         Fxaa::default(),
         ShadowFilteringMethod::Gaussian,
@@ -91,6 +87,13 @@ fn spawn_camera(mut commands: Commands) {
         DistanceFog::default(),
         Transform::from_xyz(0.0, 12.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+    // スマホでは軽くするためブルームを使わない
+    if !controls.touch_ui {
+        camera.insert(Bloom {
+            intensity: 0.18,
+            ..Bloom::NATURAL
+        });
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

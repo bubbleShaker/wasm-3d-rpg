@@ -54,12 +54,13 @@ impl Plugin for RenderSetupPlugin {
     }
 }
 
-fn spawn_sun(mut commands: Commands) {
+fn spawn_sun(mut commands: Commands, controls: Res<crate::input::Controls>) {
     commands.spawn((
         Sun,
         DirectionalLight {
             illuminance: 11_000.0,
-            shadow_maps_enabled: true,
+            // スマホでは軽くするため影を使わない
+            shadow_maps_enabled: !controls.touch_ui,
             color: Color::srgb(1.0, 0.95, 0.85),
             ..default()
         },
