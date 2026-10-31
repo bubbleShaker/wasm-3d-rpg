@@ -417,7 +417,7 @@ fn spawn_village(commands: &mut Commands, ctx: &mut SpawnCtx, col: &mut Collider
 
     // 宝箱
     let chests = [
-        (0u8, Vec2::new(-36.0, 25.0)),
+        (0u8, Vec2::new(-86.0, 52.0)),
         (1, Vec2::new(40.0, 40.0)),
         (2, Vec2::new(-30.0, -60.0)),
         (3, Vec2::new(82.0, -60.0)),
