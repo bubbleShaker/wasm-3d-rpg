@@ -95,6 +95,8 @@
     };
     restStick();
     window.addEventListener("resize", restStick);
+    // タイトル中は非表示で高さが 0 なので、プレイが始まって表示されたときに置き直す
+    new ResizeObserver(() => { if (!stick) restStick(); }).observe(lzone);
     const local = (e) => { const r = lzone.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 
     lzone.addEventListener("pointerdown", (e) => {
