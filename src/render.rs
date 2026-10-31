@@ -201,6 +201,7 @@ fn on_zone_entered(
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn update_environment(
+    controls: Res<crate::input::Controls>,
     time: Res<Time>,
     zone: Res<CurrentZone>,
     mut day: ResMut<DayCycle>,
@@ -230,7 +231,7 @@ fn update_environment(
             let noon = Color::srgb(1.0, 0.97, 0.9);
             light.color = noon.mix(&warm, golden * golden);
             light.illuminance = 7_000.0 + 7_000.0 * (1.0 - golden);
-            light.shadow_maps_enabled = true;
+            light.shadow_maps_enabled = !controls.touch_ui;
             *lt = Transform::from_translation(ppos + dir * 60.0).looking_at(ppos, Vec3::Y);
             for mut d in &mut disc {
                 d.translation = cam_t.translation + dir * 500.0;
