@@ -59,6 +59,17 @@ pub fn world_running(state: Res<State<GameState>>, block: Res<UiBlock>) -> bool 
     matches!(state.get(), GameState::Playing | GameState::Title | GameState::Boot) && !block.any()
 }
 
+#[cfg(target_arch = "wasm32")]
+fn window_resolution() -> WindowResolution {
+    let scale = web_sys::window().map_or(1.0, |w| w.device_pixel_ratio()) as f32;
+    WindowResolution::new(1280, 720).with_scale_factor_override(scale)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn window_resolution() -> WindowResolution {
+    WindowResolution::new(1280, 720)
+}
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(
@@ -69,12 +80,8 @@ fn main() {
                     canvas: Some("#game".into()),
                     fit_canvas_to_parent: true,
                     prevent_default_event_handling: true,
-                    // 高 DPI 画面でも CSS ピクセル解像度で描画して負荷を抑える
-                    resolution: if cfg!(target_arch = "wasm32") {
-                        WindowResolution::new(1280, 720).with_scale_factor_override(1.0)
-                    } else {
-                        WindowResolution::new(1280, 720)
-                    },
+                    // 描画の倍率は index.html が決める (高 DPI 画面でそのまま描くと重い)
+                    resolution: window_resolution(),
                     ..default()
                 }),
                 ..default()

@@ -757,6 +757,7 @@ fn dialog_ui(
 fn tap_dialog_choice(
     dialog: Res<Dialog>,
     mut controls: ResMut<Controls>,
+    windows: Query<&Window>,
     items: Query<(&DialogChoiceItem, &ComputedNode, &UiGlobalTransform)>,
 ) {
     let Some(tap) = controls.tap else { return };
@@ -764,6 +765,8 @@ fn tap_dialog_choice(
         return;
     }
     controls.confirm = false;
+    // タップは CSS ピクセル、UI の判定は実ピクセル
+    let tap = tap * windows.single().map_or(1.0, |w| w.scale_factor());
     if let Some((item, _, _)) = items.iter().find(|(_, node, tf)| node.contains_point(**tf, tap)) {
         controls.choice = Some(item.0);
     }

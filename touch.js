@@ -2,11 +2,7 @@
 // 画面の上に仮想スティックとボタンを重ね、入力を window.__touchTake() でゲーム (input.rs) に渡す。
 // ゲーム側は body の data-mode (title / play / dialog / menu) と data-near で今の場面を知らせてくる。
 (function () {
-  const q = new URLSearchParams(location.search);
-  const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-  const on = q.get("touch") === "1" || (q.get("touch") !== "0" && coarse && navigator.maxTouchPoints > 0);
-  window.__touchUI = on;
-  if (!on) return;
+  if (!window.__touchUI) return; // 判定は index.html
 
   // ボタンの番号は input.rs の TOUCH_* と揃える
   const B = { attack: 0, roll: 1, jump: 2, talk: 3, potion: 4, lock: 5, bag: 6, menu: 7 };
@@ -26,7 +22,9 @@
   };
   let zoom = fit();
   const css = `
-    #touch { position: fixed; inset: 0; z-index: 5; pointer-events: none; user-select: none; -webkit-user-select: none;
+    html, body { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    #touch, #touch * { touch-action: none; }
+    #touch { position: fixed; inset: 0; z-index: 5; pointer-events: none;
       font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; touch-action: none; }
     body:not([data-mode="play"]) #touch .play { display: none; }
     #lzone { position: absolute; left: 0; top: 18%; bottom: 0; width: 42%; pointer-events: auto; }
@@ -54,6 +52,9 @@
     #rotate .ph { width: ${u(46)}; height: ${u(78)}; border: ${u(4)} solid #f3e6c4; border-radius: ${u(9)}; animation: rot 2s infinite; }
     @keyframes rot { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
     @media (orientation: portrait) { #rotate { display: flex; } }
+    #fsmsg { position: fixed; z-index: 15; left: 50%; top: calc(${u(48)} + env(safe-area-inset-top)); transform: translateX(-50%);
+      width: max-content; max-width: 80vw; padding: ${u(8)} ${u(14)}; border-radius: ${u(10)}; background: rgba(7, 10, 20, .88);
+      color: #f3e6c4; font: 700 ${u(13)}/1.5 system-ui, sans-serif; text-align: center; pointer-events: none; display: none; }
   `;
   const R = "env(safe-area-inset-right)";
   const html = `
@@ -140,12 +141,40 @@
       el.addEventListener("pointercancel", off);
       el.addEventListener("pointerleave", off);
     }
-    root.querySelector("#b-fs").addEventListener("pointerdown", (e) => {
+    // 全画面: ブラウザが操作として認めるのは指を離したときなので、pointerup で呼ぶ
+    const fsBtn = root.querySelector("#b-fs");
+    if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) fsBtn.style.display = "none"; // ホーム画面から開いていて、すでに全画面
+    const fsMsg = document.createElement("div");
+    fsMsg.id = "fsmsg";
+    document.body.appendChild(fsMsg);
+    let fsTimer = 0;
+    const fsFail = () => {
+      fsMsg.textContent = "このブラウザは全画面に対応していません。共有メニューの「ホーム画面に追加」から開くと全画面で遊べます";
+      fsMsg.style.display = "block";
+      clearTimeout(fsTimer);
+      fsTimer = setTimeout(() => { fsMsg.style.display = "none"; }, 6000);
+    };
+    fsBtn.addEventListener("pointerdown", (e) => e.preventDefault());
+    fsBtn.addEventListener("pointerup", (e) => {
       e.preventDefault();
       const d = document.documentElement;
-      if (document.fullscreenElement) document.exitFullscreen?.();
-      else (d.requestFullscreen || d.webkitRequestFullscreen)?.call(d)?.then?.(() => screen.orientation?.lock?.("landscape").catch(() => {}));
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+        return;
+      }
+      const req = d.requestFullscreen || d.webkitRequestFullscreen;
+      if (!req) return fsFail();
+      // 古い webkit は Promise を返さない
+      Promise.resolve(req.call(d)).then(() => screen.orientation?.lock?.("landscape")).catch(() => {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) fsFail();
+      });
     });
+
+    // iPhone の Safari は user-scalable=no も touch-action: none も効かず、連打やピンチで拡大してしまう。
+    // このゲームにスクロールやリンクはないので、ブラウザのタッチ操作は全部止める (pointer イベントは届く)
+    const stop = (e) => { if (e.cancelable) e.preventDefault(); };
+    for (const t of ["touchend", "touchmove"]) document.addEventListener(t, stop, { passive: false });
+    for (const t of ["gesturestart", "gesturechange", "gestureend", "dblclick"]) document.addEventListener(t, stop, { passive: false });
 
     // ゲーム画面 (canvas) を触ったとき: プレイ中はドラッグでカメラ、どの場面でも短いタップを記録する
     const canvas = document.getElementById("game");
