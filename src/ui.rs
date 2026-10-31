@@ -277,7 +277,7 @@ fn bar(parent: &mut ChildSpawnerCommands, width: f32, height: f32, color: Color,
         });
 }
 
-fn spawn_hud(mut commands: Commands, ga: Res<GameAssets>) {
+fn spawn_hud(mut commands: Commands, ga: Res<GameAssets>, controls: Res<Controls>) {
     let ga = &*ga;
     commands
         .spawn((
@@ -409,11 +409,11 @@ fn spawn_hud(mut commands: Commands, ga: Res<GameAssets>) {
                 });
             });
 
-            // 上中央: ボスの体力
+            // 上中央: ボスの体力 (タッチのときは上のボタンと左の体力を避ける)
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    top: px(22),
+                    top: px(if controls.touch_ui { 60 } else { 22 }),
                     width: percent(100),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
@@ -425,7 +425,7 @@ fn spawn_hud(mut commands: Commands, ga: Res<GameAssets>) {
             ))
             .with_children(|b| {
                 b.spawn((label(ga, "黒騎士ヴァルガ", 20.0, Color::srgb(0.9, 0.75, 1.0)), BossName));
-                bar(b, 520.0, 14.0, Color::srgb(0.6, 0.2, 0.85), BossFill);
+                bar(b, if controls.touch_ui { 330.0 } else { 520.0 }, 14.0, Color::srgb(0.6, 0.2, 0.85), BossFill);
             });
 
             // 操作説明
